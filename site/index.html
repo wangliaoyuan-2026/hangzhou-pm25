@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>杭州 PM2.5 看板</title>
+<meta name="description" content="杭州 PM2.5 浓度监测，以及与国内、国外主要城市的对比。数据每小时自动更新。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-in">
+    <div>
+      <h1>杭州 PM2.5 看板</h1>
+      <p class="sub">细颗粒物浓度（µg/m³）· 杭州与国内外主要城市对比</p>
+    </div>
+    <p class="updated" id="updated">正在加载数据…</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="tiles" id="tiles" aria-label="杭州概况"></section>
+
+  <section class="block">
+    <div class="block-head">
+      <h2>杭州近 7 天逐小时</h2>
+      <p class="hint">国控站城市均值。虚线为 24 小时均值参考线。</p>
+    </div>
+    <div class="chart" id="c-hourly"></div>
+  </section>
+
+  <section class="grid2">
+    <div class="block">
+      <div class="block-head">
+        <h2>杭州日均浓度</h2>
+        <p class="hint">拖动下方滑块查看更早的数据。</p>
+      </div>
+      <div class="chart" id="c-daily"></div>
+    </div>
+    <div class="block">
+      <div class="block-head">
+        <h2>杭州年均浓度</h2>
+        <p class="hint">浅色柱为不足一年的数据（当年或缺测较多）。</p>
+      </div>
+      <div class="chart" id="c-yearly"></div>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="block">
+      <div class="block-head">
+        <h2>季节与时段规律</h2>
+        <p class="hint">各月、各小时的历史平均浓度，图例见下方。</p>
+      </div>
+      <div class="chart" id="c-heat"></div>
+    </div>
+    <div class="block">
+      <div class="block-head">
+        <h2>未来 5 天预报</h2>
+        <p class="hint" id="fc-note">来自 Open-Meteo（CAMS 模型）。</p>
+      </div>
+      <div class="chart" id="c-fc"></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="block-head">
+      <h2>国内城市对比</h2>
+      <div class="seg" role="tablist" id="cn-period">
+        <button role="tab" aria-selected="true" data-k="last365">近 365 天</button>
+        <button role="tab" aria-selected="false" data-k="last30">近 30 天</button>
+      </div>
+    </div>
+    <div class="grid2 inner">
+      <div class="chart" id="c-cn"></div>
+      <div class="chart" id="c-yrd"></div>
+    </div>
+    <div class="rank" id="rank"></div>
+  </section>
+
+  <section class="block">
+    <div class="block-head">
+      <h2>国际城市对比</h2>
+      <p class="hint" id="intl-note"></p>
+    </div>
+    <div class="chart" id="c-intl"></div>
+  </section>
+
+  <section class="block">
+    <div class="block-head">
+      <h2>达标天数</h2>
+      <p class="hint">近 365 天中，日均值达到中国国标二级（≤75）和 WHO 指导值（≤15）的天数占比。</p>
+    </div>
+    <div class="tbl"><table id="t-ok"></table></div>
+  </section>
+
+  <section class="block">
+    <div class="block-head">
+      <h2>各城市实时读数</h2>
+      <p class="hint" id="live-note"></p>
+    </div>
+    <div class="tbl"><table id="t-live"></table></div>
+  </section>
+
+  <section class="block" id="stations-block" hidden>
+    <div class="block-head">
+      <h2>杭州各监测站</h2>
+      <p class="hint">来自 WAQI，由美国 AQI 分指数换算为浓度。</p>
+    </div>
+    <div class="tbl"><table id="t-st"></table></div>
+  </section>
+
+  <footer class="notes">
+    <h2>数据说明</h2>
+    <ul>
+      <li><b>杭州与国内城市</b>：中国环境监测总站国控站逐小时数据（经 <a href="https://quotsoft.net/air/" target="_blank" rel="noopener">quotsoft.net</a> 镜像），每天更新。日均值需至少 20 个有效小时，年均值需至少 324 个有效日（GB 3095）。</li>
+      <li><b>国外城市</b>：<a href="https://openaq.org" target="_blank" rel="noopener">OpenAQ</a> 汇总的各国官方监测站，取市中心 25 km 内最多 8 个站的平均。</li>
+      <li><b>实时读数</b>：国内来自 <a href="https://aqicn.org" target="_blank" rel="noopener">WAQI</a>，国外来自 OpenAQ；缺失时用 Open-Meteo 模型值并标注。</li>
+      <li><b>预报</b>：<a href="https://open-meteo.com/en/docs/air-quality-api" target="_blank" rel="noopener">Open-Meteo</a> 转发的欧洲 CAMS 模型。该模型在中国城市明显偏高，看板按近 30 天“实测 ÷ 模型”的比值做了校正。</li>
+      <li><b>参考限值</b>：WHO 指导值年均 5、24 小时 15；中国国标二级年均 35、24 小时 75；美国 EPA 年均 9。</li>
+    </ul>
+  </footer>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

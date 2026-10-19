@@ -1,0 +1,87 @@
+name: 更新数据并发布看板
+
+on:
+  schedule:
+    - cron: "25 * * * *"   # 每小时第 25 分钟（国控站数据约在整点后更新）
+  workflow_dispatch:
+    inputs:
+      commit_data:
+        description: "本次是否提交数据到仓库"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths: ["site/**", "scripts/**", ".github/workflows/**"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      TZ: Asia/Shanghai
+      WAQI_TOKEN: ${{ secrets.WAQI_TOKEN }}
+      OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 判断是否为每日任务
+        id: when
+        run: |
+          # 北京时间 03 点那一次、手动触发时，做每日更新并提交数据
+          if [ "$(date +%H)" = "03" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "daily=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "daily=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 国控站数据（杭州 + 全国城市）
+        run: python scripts/update_cn.py --days ${{ steps.when.outputs.daily == 'true' && 5 || 1 }} --no-cache
+        continue-on-error: true
+
+      - name: Open-Meteo 模型与预报
+        run: python scripts/update_model.py
+        continue-on-error: true
+
+      - name: OpenAQ 国外城市实测日均
+        if: steps.when.outputs.daily == 'true'
+        run: python scripts/update_intl.py --days 10
+        continue-on-error: true
+
+      - name: 实时读数（WAQI / OpenAQ）
+        run: python scripts/fetch_live.py
+        continue-on-error: true
+
+      - name: 生成看板数据
+        run: python scripts/build_site_data.py
+
+      - name: 提交数据
+        if: steps.when.outputs.daily == 'true' && (github.event_name != 'workflow_dispatch' || inputs.commit_data)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || git commit -m "数据更新 $(date +%F)"
+          git push
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
